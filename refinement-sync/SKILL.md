@@ -1,5 +1,5 @@
 ---
-name: refinement:sync
+name: refinement-sync
 description: Use to bring the accountia superrepo's submodule knowledge graphs (`.ua/`) up to the latest default-branch code and rebuild them. Defaults to **every** submodule — no `--repo` needed — and is built to run unattended (e.g. from a cron job): it never asks a question and never waits on a prompt. For each repo it fast-forwards the submodule to its remote default branch, clears that repo's leftover analysis scratch, then **tries incremental update first** — `@understand --repo <repo>` (no `--full`) — and only falls back to a full rebuild (`@understand --repo <repo> --full`) when the incremental path fails or cannot handle the change. Runs each repo's analysis as a **parallel sub-agent** so all repos are processed concurrently. Verifies each rebuilt graph landed on the synced commit before reporting, and names any repo it could not bring current instead of stopping the whole run. Optional `--repo` narrows a manual run. Never touches Jira, never writes sub-task files, never hand-edits the graph artifacts, never touches the superrepo.
 ---
 
@@ -20,7 +20,7 @@ Bring every submodule of the accountia superrepo to its latest default-branch co
 ## Input
 
 ```
-/refinement:sync [--repo <repo>[,<repo>...]]
+/refinement-sync [--repo <repo>[,<repo>...]]
 ```
 
 - **No arguments → every submodule of the superrepo.** This is the normal form and the one a scheduler uses. There is nothing to ask and nothing to narrow: "all of them" is the answer.
