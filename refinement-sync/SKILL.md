@@ -1,6 +1,6 @@
 ---
 name: refinement-sync
-description: Use to bring the accountia superrepo's submodule knowledge graphs (`.ua/`) up to the latest default-branch code and rebuild them. Defaults to **every** submodule — no `--repo` needed — and is built to run unattended (e.g. from a cron job): it never asks a question and never waits on a prompt. For each repo it fast-forwards the submodule to its remote default branch, clears that repo's leftover analysis scratch, then **tries incremental update first** — `@understand --repo <repo>` (no `--full`) — and only falls back to a full rebuild (`@understand --repo <repo> --full`) when the incremental path fails or cannot handle the change. Runs each repo's analysis as a **parallel sub-agent** so all repos are processed concurrently. Verifies each rebuilt graph landed on the synced commit before reporting, and names any repo it could not bring current instead of stopping the whole run. Optional `--repo` narrows a manual run. Never touches Jira, never writes sub-task files, never hand-edits the graph artifacts, never touches the superrepo.
+description: Update submodule code to latest default branch, then rebuild each repo's `.ua/` graph incrementally (full fallback) via parallel sub-agents. No Jira, no sub-task files, no graph hand-edits. Optional `--repo` to narrow.
 ---
 
 # Refinement — Sync
@@ -38,7 +38,7 @@ These are not negotiable, even under pressure to move fast:
 5. **Never hand-edit the graph artifacts** — `knowledge-graph.json`, `meta.json`, `fingerprints.json`. `@understand` rebuilds them, or they are wrong. (Clearing the scratch directories under `.ua/` in step 3 is expected cleanup, not hand-editing.)
 6. **Never rebase, reset, force, or overwrite.** Fast-forward only; `git stash -u` is the ceiling for uncommitted work, and divergence is a stop, not a problem to push through.
 7. **Never touch the superrepo** — no branch switch, no commits, no moving the superproject's submodule pointers. (Running `git submodule update --init` in step 1 to check out a submodule that has no checkout yet is checkout setup, not touching the superrepo — it does not move a pointer.)
-8. **Never write `docs/refinement/`, never run `/refinement` or `/refinement:create`, never create or edit anything in Jira.** Chaining into the next step is the developer's call, not this skill's.
+8. **Never write `docs/refinement/`, never run `/refinement` or `/refinement-create`, never create or edit anything in Jira.** Chaining into the next step is the developer's call, not this skill's.
 9. **Never substitute a hand-read of the source for the graph**, and never report a repo as synced without the step-5 comparison.
 10. **Never stop the whole run for one repo's trouble.** Every `--repo` is attempted; one that cannot be brought current is named as a stop and the run carries on with the rest.
 11. **Never delete the graph artifacts as part of cleanup.** Step 3 clears scratch only: a rebuild that fails leaves the developer with the previous graph rather than none.
@@ -244,7 +244,7 @@ Per repo, **in the output of this run** — there is no reader watching it live,
 - Don't abort the whole run because one repo failed.
 - Don't report a repo as synced without the step-3c comparison, and don't leave a repo's result out of the report.
 - Don't read the source by hand and present that as a synced graph.
-- Don't chain into `/refinement`, `/refinement:create`, or any Jira write — the updated graphs are the deliverable, and the developer runs the next step.
+- Don't chain into `/refinement`, `/refinement-create`, or any Jira write — the updated graphs are the deliverable, and the developer runs the next step.
 - Don't write files. Not sub-task files, not a log, not a report. The report is the output of the run.
 
 ## Output
