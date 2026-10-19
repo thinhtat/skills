@@ -1,6 +1,6 @@
 ---
 name: refinement
-description: Use when a Jira issue — a Story, Bug, or Task — must be broken down into implementation sub-tasks. Requires, before it runs: the Atlassian MCP connection and, for a Story, the `ready_for_refinement` label (a Bug or Task needs no label). Because this is a git superrepo, the skill then **checks only** that each `--repo` submodule's knowledge graph (`.ua/`) is at the repo's current `HEAD` — it does **not** update, rebuild, or run `/understand` in any form. If any repo's graph is stale, the run stops and writes nothing. Reads the issue and its linked Confluence pages from Jira, splits the work per component (BE / FE / QC) and per business capability, then writes self-contained sub-task markdown files under `docs/refinement/` whose descriptions stay in plain language (no class, method or file names) for the developer to review. It always re-analyses the issue and writes fresh files, even when the issue already carries sub-tasks on Jira. Read-only against Jira: this skill never creates or moves tickets, and never runs `/refinement:create`. Run as `/refinement ACC-8686 --repo accountia-backend`; creating the reviewed sub-tasks on Jira is a separate, developer-run step.
+description: Break a Jira issue (Story/Bug/Task) into sub-task files under `docs/refinement/`. Checks submodule `.ua/` graphs are current (read-only, no `/understand`); if stale, stops. Requires Atlassian MCP and, for Stories, `ready_for_refinement` label. Read-only against Jira; never invokes `/refinement-create`. Run as `/refinement ACC-8686 --repo <repo>`.
 ---
 
 # Refinement
@@ -13,7 +13,7 @@ This skill reads Jira and never writes to it. It treats the repos' knowledge gra
 
 **This skill always produces files.** It re-analyses the issue and writes the sub-task files from scratch every time it runs — the presence of existing sub-tasks on the issue never stops it and never changes what it does. Existing sub-tasks are context to read, not a reason to skip the work, and not a source to copy from. A refinement can outlive the tickets it once produced: the graph has moved, a requirement was clarified, or the earlier breakdown was simply wrong. Report what already exists on the issue, then write the files anyway, and let the developer reconcile the two.
 
-The skill is also **self-contained**: it does not invoke `/refinement:create` or any other skill, and it does not depend on any skill being present.
+The skill is also **self-contained**: it does not invoke `/refinement-create` or any other skill, and it does not depend on any skill being present.
 
 ## Input
 
@@ -33,7 +33,7 @@ These are not negotiable, even under pressure to move fast:
 1. **Never write to Jira.** No transitions, no edits, no comments, no issue/Epic/subtask creation, no status changes, no assignment. This skill only *reads* Jira.
 2. **Never invoke `start-ticket`** — it is another team's skill and touches Jira state. Do not call it, do not copy its behaviors.
 3. **Never run `writing-plans` and never create plan documents.** Sub-task files are self-contained; there is no plan layer and no plan links.
-4. **Never invoke `/refinement:create`, and never create Jira tickets from the sub-task files.** The skill ends at the review gate. Ticket creation is a separate step the developer runs later, in a separate skill, at a time of their choosing. Never chain into it, never suggest in your own output that it will happen automatically, and never do it because the folder looks finished.
+4. **Never invoke `/refinement-create`, and never create Jira tickets from the sub-task files.** The skill ends at the review gate. Ticket creation is a separate step the developer runs later, in a separate skill, at a time of their choosing. Never chain into it, never suggest in your own output that it will happen automatically, and never do it because the folder looks finished.
 5. **Never invoke any other skill from this one.** This skill is self-contained: it must work whether or not any other skill in the family exists.
 6. **Always produce the files, even when the issue already has sub-tasks.** Existing sub-tasks are context to read and report, never a reason to stop, and never a source to copy from. Produce a fresh breakdown from the issue and the graph every time.
 7. **Never guess the repo** — `--repo` must be explicit, else ask.
@@ -47,9 +47,9 @@ These are not negotiable, even under pressure to move fast:
 - "The issue doesn't say which repo, I'll assume backend"
 - "I'll skip the review gate, the developer is busy"
 - "I'll run `start-ticket` to get the spec sorted first"
-- "I'll run `/refinement:create` since the files are ready anyway"
+- "I'll run `/refinement-create` since the files are ready anyway"
 - "The folder is approved — creating the tickets is the obvious next step"
-- "`/refinement:create` is only one more call, it saves the developer a step"
+- "`/refinement-create` is only one more call, it saves the developer a step"
 - "The issue already has sub-tasks, so the work is done"
 - "Sub-tasks already exist on Jira, I'll just report that and stop"
 - "The existing sub-tasks look right, I'll skip writing the files"
@@ -432,7 +432,7 @@ If you are told the sub-tasks for this issue already exist on Jira, that is stil
 ## What NOT to do
 
 - Don't transition, edit, comment, assign, or create anything in Jira; don't call `start-ticket`.
-- Don't invoke `/refinement:create`, or any other skill, from this one — and don't create Jira tickets from the files yourself.
+- Don't invoke `/refinement-create`, or any other skill, from this one — and don't create Jira tickets from the files yourself.
 - Don't stop, skip the files, or thin the breakdown because the issue already has sub-tasks on Jira.
 - Don't copy the existing sub-task descriptions into the new files, or treat them as the spec — the issue description and the graph are authoritative.
 - Don't pile new files on top of a previous run's folder without rewriting it, and don't leave files for sub-tasks that no longer exist.
