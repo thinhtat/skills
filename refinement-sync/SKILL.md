@@ -42,6 +42,7 @@ These are not negotiable, even under pressure to move fast:
 9. **Never substitute a hand-read of the source for the graph**, and never report a repo as synced without the step-5 comparison.
 10. **Never stop the whole run for one repo's trouble.** Every `--repo` is attempted; one that cannot be brought current is named as a stop and the run carries on with the rest.
 11. **Never delete the graph artifacts as part of cleanup.** Step 3 clears scratch only: a rebuild that fails leaves the developer with the previous graph rather than none.
+12. **`.ua/` must be `.gitignore`d and never committed, pushed, or stashed to git.** Before any sync, verify each submodule's `.gitignore` excludes `.ua/`; if missing, append it. Never `git add`, `git commit`, `git push`, or `git stash -u` that includes `.ua/`. The graph artifacts are local-only build products, not source; exposing them to version control corrupts both the repo and the superrepo's submodule pointer tracking.
 
 ## Red flags — stop and start over
 
@@ -96,6 +97,8 @@ git -C <accountia-all> config --file .gitmodules --get-regexp path
 - A submodule directory that is missing or empty has no checkout yet: run `git -C <accountia-all> submodule update --init -- <repo>` once for it, then carry on into step 2 as usual. That is checkout setup, not a sync — the fetch, switch and fast-forward still have to happen — and it never applies to the other repos. If that init fails, stop that repo and name the error; the rest of the run continues.
 
 ### 2. Sync the code — per repo, without asking first
+
+Before sync: check `.gitignore` in `<repo>` — if `.ua/` is not excluded, append `/.ua/` (or `.ua/`) to it. Never include `.ua/` in any `git stash -u`, `git add`, or commit.
 
 ```bash
 git -C <accountia-all>/<repo> fetch -q origin
