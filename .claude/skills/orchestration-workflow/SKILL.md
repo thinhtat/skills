@@ -52,15 +52,17 @@ Dispatch shapes, the task-spec contract, waves, and the nested-worker depth budg
 
 Every claim about what the code does — that a capability exists, that a handler is already called, that a field is already populated, that a screen already has a branch — is answered from `$WS/<repo>/main/.ua/knowledge-graph.json`, not from opening the source tree. That is what phase 1 verified the graph for.
 
-The graph answers, per node: `id`, `type` (`file` / `class` / `function` / `endpoint` / `table` / `config` / `document` / `service`), `filePath`, `summary` (what it does, in prose), `tags`, `complexity`; and per edge: `calls` (3.5k in the backend), `imports` (24k), `contains`, `inherits`, `implements`, `tested_by`, `depends_on`, `related`, `deploys`, `triggers`, `configures`, `documents`. It also carries `layers` (architecture) and `tour`.
+The graph answers, per node: `id`, `type` (`file` / `class` / `function` / `table` / `config` / `document` / `service` / `pipeline`), `filePath`, `lineRange`, `summary` (what it does, in prose), `tags`, `complexity`; and per edge: `calls` (3.5k in the backend), `imports` (24k), `contains` (10.4k), `exports` (9.1k), `inherits`, `implements`, `tested_by`, `depends_on`, `related`, `deploys`, `triggers`, `configures`, `documents`. It also carries `layers` (architecture) and `tour`. Neither repo produces `endpoint` nodes: an HTTP operation is a `function` node on a `*Controller` class, and `calls` edges run function → function/class.
 
-**What the graph does not carry: line numbers.** No node has `lineStart`/`lineEnd`. A plan that cites `File.java:257-269` got those numbers from reading source, and that is the leak to watch for.
+**Query the graph, never load it.** The backend file is 24 MB (~6.1M tokens) and the frontend's is 8.9 MB — they do not fit in a context. Recipes: [references/delegation.md](references/delegation.md#querying-the-graph--never-read-it-whole).
+
+**Line ranges are carried; provenance still matters.** `class` and `function` nodes carry `lineRange: [start, end]` — 10,289 of the backend's 15,499 nodes. A plan may cite a range it took from the node. A range the plan got by opening the file to find out what the code does is the leak to watch for: ask for the node id alongside every claim, and a claim with no node id is the one to re-check.
 
 So the split is:
 
 | Question | Answered from |
 |---|---|
-| Does this capability exist? Where does it live? What calls it? What tests it? Which layer? | **Graph** |
+| Does this capability exist? Where does it live? What calls it? What tests it? Which layer? | **Graph** (queried, capped — never loaded whole) |
 | Which exact line does the edit go in? What is the current method body? | Source, and only after the graph has named the file |
 
 A plan may name files and give edit instructions; it may read the one file it is about to change to place the edit. What it must not do is *investigate* by reading the tree: that is slower, misses cross-repo edges, and produces confident claims the graph would have refuted.
@@ -75,6 +77,8 @@ If a graph cannot answer something — it is stale, the node is absent, or the q
 | 2. Refinement | `$WS/docs/refinement/<TICKET>/` | human approves the folder |
 | 3. Implementation plans | `$WS/docs/plans/<TICKET>/` | human approves the folder |
 | 4. Implementation | one worktree per repo, committed | every plan implemented and reviewed |
+
+Title every task `<Pn> <phase> <ticket>` and post one `status` message on the Run when a gate passes, so the run is readable while it is in flight — shapes and the cost of each: [references/delegation.md](references/delegation.md#announcing-phases).
 
 ### Phase 1 — Preflight
 
@@ -100,6 +104,8 @@ Three gates, all before phase 2. Each either passes or ends the run.
   Wait for every `worker_done`, re-compare, and pass only when every graph equals its HEAD. Still unequal → stop and report both hashes per repo.
 
 A graph beside `main` (`$WS/<repo>/.ua`) belongs to no checkout the run uses. Leave it alone — do not read, move, or delete it.
+
+G1–G3 all passing closes phase 1: post `status` with `--phase "preflight"`, naming the ticket key and type and each repo's graph hash against its HEAD.
 
 Phase 1 refreshes the graph; refinement will not. That is deliberate: the workflow owns freshness so refinement's own gate is satisfiable, then refinement runs against a verified graph.
 
@@ -127,7 +133,7 @@ The gate: the specs are in `$WS/docs/refinement/<TICKET>/`, verified by listing 
 plannotator annotate "$WS/docs/refinement/<TICKET>" --gate --json
 ```
 
-- `approved` → phase 3.
+- `approved` → post `status` with `--phase "refinement"` (folder, file count, verdict), then phase 3.
 - Annotations → re-dispatch the refinement worker with that feedback, then re-present.
 - Anything else → stay in phase 2.
 
@@ -137,11 +143,11 @@ Read every file in `$WS/docs/refinement/<TICKET>/`. `00-README.md` is the index;
 
 Ground the plans in the knowledge graphs first — the graph is the evidence for every "already exists", "already called", and "already returns" claim, and for where the change belongs. Reading source is for placing an edit in a file the graph already named, never for discovering the design.
 
-Dispatch `/superpowers:brainstorming` first, to settle the specs' open questions. Its note is a design note built from the graphs, and every claim in it cites a graph node (`file:` / `class:` / `function:` / `endpoint:`) rather than a source line range — line numbers are not in the graph, so a note full of `:257-269` was produced by reading the tree.
+Dispatch `/superpowers:brainstorming` first, to settle the specs' open questions. Its note is a design note built from the graphs, and every claim in it cites a graph node (`file:` / `class:` / `function:` / `table:`). A line range is fine when it came from that node's `lineRange`; a note full of `:257-269` with no node id was produced by reading the tree.
 
 Then, once it settles, dispatch one `/superpowers:writing-plans` worker per implementation spec, each in **that spec's own repo worktree** (`--worktree path:$WS/<repo>/main`), each told to write into `$WS/docs/plans/<TICKET>/` — one plan file per spec, plus a `README.md` index carrying sequencing, the decisions made, and the graph commit each plan was written against.
 
-The gate: `plannotator annotate "$WS/docs/plans/<TICKET>" --gate --json`, same loop as phase 2, re-dispatching the plan's own worker for each round.
+The gate: `plannotator annotate "$WS/docs/plans/<TICKET>" --gate --json`, same loop as phase 2, re-dispatching the plan's own worker for each round. Passing it posts `status` with `--phase "plans"` — plan count and the graph commit each was written against.
 
 ### Phase 4 — Implementation
 
@@ -155,14 +161,14 @@ git -C $WS/<repo>/main worktree add $WS/<repo>/<TICKET>-<slug> -b <case-type>/<T
 
 Then dispatch one worker per plan, each running `/superpowers:subagent-driven-development` **with cwd inside its own worktree** and the absolute plan path. SDD dispatches its per-task implementers and reviewers as Orca workers on the same Run — its own nested workers, no second `run-create`. One implementer per worktree at a time.
 
-When every plan is complete and reviewed: release the settled workers and report each worktree's branch and committed range. That ends the run.
+When every plan is complete and reviewed: release the settled workers, post `status` with `--phase "implementation"` naming each worktree's branch and committed range, and report the same to the developer. That ends the run.
 
 Commits stay inside the worktrees. The run never pushes, never opens an MR, never merges, and never runs `finishing-a-development-branch` — the developer decides what happens to the branches.
 
 ## Hard rules
 
 1. Every delegation is an Orca dispatch on the bound Run. Coordination without Orca runtime state is not this skill's coordination.
-2. Every claim about existing code is answered from the knowledge graph; source is opened only to place an edit in a file the graph already named.
+2. Every claim about existing code is answered from the knowledge graph — queried with a cap, never loaded whole; source is opened only to place an edit in a file the graph already named.
 3. Worktrees are created from `$WS/<repo>/main`, always.
 4. `accountia-all/` is out of bounds as a working location.
 5. Gates are binary: pass, or end the run with the reason. A gate that could not be checked has not passed.

@@ -16,6 +16,34 @@ Each phase dispatches its workers, then waits. A timeout or empty `check` is a c
 
 At the end, `worker-release` each settled dispatch.
 
+## Announcing phases
+
+Two mechanisms, and only two. A decision gate is not one of them: the contract reserves gates for coordinator-owned Task-DAG decisions, and a phase boundary is a report, not a decision.
+
+**Name every task by phase.** Both `task-create` and `worker-start` take `--task-title`, and `--display-name` for the worker row in the UI. Title each one `<Pn> <phase> <ticket>`:
+
+```
+P1 G3 refresh backend graph ACC-1234
+P2 refinement ACC-1234
+P3a brainstorming ACC-1234
+P3b plan BE ACC-1234
+P4 implementation BE ACC-1234
+```
+
+This costs nothing and adds no message: `task-list` becomes readable while the run is in flight, and a task that failed is identifiable by name rather than by tracing its spec back to a phase.
+
+**Post one `status` message per gate.** After a gate passes, announce it on the Run:
+
+```bash
+ORCA orchestration send --type status --phase "refinement" \
+  --subject "P2 gate passed — refinement approved" \
+  --body "<folder, file count, approval verdict>" --run <run_id> --json
+```
+
+The coordinator omits `--from`. `--phase` is free text carried in the message payload; use one of `preflight`, `refinement`, `plans`, `implementation` — the four gate names this workflow posts — so the run reads as a sequence.
+
+Cost: each `status` message lands in the Run inbox, and `check` hands back the whole FIFO batch until it is acknowledged, so every one is a row the coordinator must drain. Post at gate boundaries only — four per run — never per worker.
+
 ## The task-spec contract
 
 Every `worker-start --spec` carries five things. A spec missing any of them is under-specified and will come back as a question.
@@ -34,13 +62,17 @@ Each spec's **Constraints** must carry the grounding rule, verbatim or tighter:
 
 ```
 Ground every claim about existing code in the knowledge graph at
-<repo>/main/.ua/knowledge-graph.json — it answers what exists, what calls what,
-which tests cover what, and which layer a file belongs to. The graph has no line
-numbers, so do not cite file:line from it; open the source only to place an edit
-in a file the graph has already named.
+<repo>/main/.ua/knowledge-graph.json — query it, never load it whole. The graph
+is 24 MB in accountia-backend and 8.9 MB in accountia-frontend; reading it into
+context is not possible. It answers what exists, what calls what, which tests
+cover what, and which layer a file belongs to. `class` and `function` nodes
+carry `lineRange: [start, end]`, so a line range is allowed when it came from
+the node; a range you got by opening the file to investigate is not. Cite the
+node id alongside every code claim, and open the source only to place an edit in
+a file the graph has already named.
 ```
 
-A worker that reports findings as `File.java:257-269` without saying it derived them from source is hiding where the evidence came from. Ask for the graph node id alongside every code claim; a claim with no node id is the one to re-check.
+A worker that reports findings as `File.java:257-269` with no node id alongside it is hiding where the evidence came from. A claim with no node id is the one to re-check.
 
 Each spec also names its worktree explicitly — `--worktree path:<absolute path to $WS/<repo>/main>`. Never `current`: that resolves to the coordinator's worktree, so a frontend task runs in the backend tree and every relative path in it points at the wrong repo.
 
@@ -52,6 +84,76 @@ Each spec also names its worktree explicitly — `--worktree path:<absolute path
 | plan for a `[BE]` spec | `path:$WS/accountia-backend/main` |
 | plan for an `[FE]` spec | `path:$WS/accountia-frontend/main` |
 | SDD for a plan | the phase-4 worktree for that plan's repo |
+
+## Querying the graph — never read it whole
+
+`knowledge-graph.json` is 24 MB in `accountia-backend` (~6.1M tokens) and 8.9 MB
+in `accountia-frontend`. A filtered, capped lookup returns ~1.5k tokens; the
+whole file cannot fit in a context and is not meant to.
+
+Point at it once per dispatch — POSIX `KG=$WS/<repo>/main/.ua/knowledge-graph.json`,
+PowerShell `$KG = "$WS/<repo>/main/.ua/knowledge-graph.json"`.
+
+The recipes below use `node`, which the graph tooling already requires, so they
+work wherever `.ua/` exists. Where `jq` is installed it is a valid substitute —
+`jq '[.nodes[] | select(.filePath == "src/app.ts")][:15]' "$KG"` for the node
+lookup, cap included — but nothing here depends on it.
+
+**1. Project metadata** — small, safe to read whole:
+
+```bash
+node -p "JSON.stringify(require(process.argv[1]).project,null,1)" "$KG"
+```
+
+**2. Find nodes by keyword** — searches `id` + `name` + `summary` + `tags`,
+caps at 15, trims to the fields that matter:
+
+```bash
+node -e '
+const g=require(process.argv[1]), kw=process.argv[2].toLowerCase().split(/\s+/);
+const hit=n=>kw.every(k=>(n.id+" "+n.name+" "+(n.summary||"")+" "+(n.tags||[]).join(" ")).toLowerCase().includes(k));
+console.log(JSON.stringify(g.nodes.filter(hit).slice(0,15)
+  .map(n=>({id:n.id,type:n.type,filePath:n.filePath,lineRange:n.lineRange,summary:n.summary})),null,1));
+' "$KG" "manual entry delete"
+```
+
+**3. Who calls it / what it calls** — the 1-hop neighbourhood of a node id:
+
+```bash
+node -e '
+const g=require(process.argv[1]), id=process.argv[2], cap=25;
+const pick=e=>({type:e.type,source:e.source,target:e.target});
+console.log(JSON.stringify({incoming:g.edges.filter(e=>e.target===id).slice(0,cap).map(pick),
+  outgoing:g.edges.filter(e=>e.source===id).slice(0,cap).map(pick)},null,1));
+' "$KG" "function:<relative-path>:<name>"
+```
+
+`calls` edges run function → function/class, not into an `endpoint` node.
+Endpoints in these repos are modelled as `function` nodes on a `*Controller`
+class — the graph produces no `endpoint` nodes for either repo.
+
+**4. Which architectural layer a path sits in:**
+
+```bash
+node -e '
+const g=require(process.argv[1]), f=process.argv[2];
+console.log(g.layers.filter(l=>l.nodeIds.some(id=>id.includes(f))).map(l=>l.name));
+' "$KG" "accounting/commands/validators"
+```
+
+**5. Which tests cover a file** — `tested_by` edges:
+
+```bash
+node -e '
+const g=require(process.argv[1]), f=process.argv[2];
+console.log(JSON.stringify(g.edges.filter(e=>e.type==="tested_by"
+  && (e.source.includes(f)||e.target.includes(f))).slice(0,20),null,1));
+' "$KG" "<relative-path>"
+```
+
+Rules: cap every result with `.slice(0, N)`; never `JSON.stringify` a whole
+`g.nodes`; never `cat` the file. If a keyword search returns no hits, widen the
+keyword or search `tags` — do not fall back to reading the source tree.
 
 ## One spec per phase
 
@@ -88,7 +190,7 @@ Acceptance: 00-README.md plus one numbered file per sub-task; report the folder 
 Target: $WS/docs/refinement/<TICKET>/<spec file>, output to $WS/docs/plans/<TICKET>/
 Change: run /superpowers:brainstorming (once) then /superpowers:writing-plans for this one spec
 Constraints: ground every existing-code claim in <repo>/main/.ua/knowledge-graph.json and cite
-  the graph node (file:/class:/function:/endpoint:), not a source line range. Write the plan into
+  the graph node (file:/class:/function:/table:), not a source line range. Write the plan into
   $WS/docs/plans/<TICKET>/ (not docs/superpowers/plans/). The [QC] spec is a manual test plan and
   gets no implementation plan. Do not implement.
 Ownership: one plan file, plus your rows in the folder README.
