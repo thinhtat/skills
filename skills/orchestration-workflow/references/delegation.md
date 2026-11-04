@@ -24,9 +24,8 @@ Two mechanisms, and only two. A decision gate is not one of them: the contract r
 
 ```
 P1 G3 refresh backend graph ACC-1234
-P2 refinement ACC-1234
-P3a brainstorming ACC-1234
-P3b plan BE ACC-1234
+P2 tickets ACC-1234
+P3 plans ACC-1234
 P4 implementation BE ACC-1234
 ```
 
@@ -35,12 +34,12 @@ This costs nothing and adds no message: `task-list` becomes readable while the r
 **Post one `status` message per gate.** After a gate passes, announce it on the Run:
 
 ```bash
-ORCA orchestration send --type status --phase "refinement" \
-  --subject "P2 gate passed — refinement approved" \
+ORCA orchestration send --type status --phase "tickets" \
+  --subject "P2 gate passed — tickets approved" \
   --body "<folder, file count, approval verdict>" --run <run_id> --json
 ```
 
-The coordinator omits `--from`. `--phase` is free text carried in the message payload; use one of `preflight`, `refinement`, `plans`, `implementation` — the four gate names this workflow posts — so the run reads as a sequence.
+The coordinator omits `--from`. `--phase` is free text carried in the message payload; use one of `preflight`, `tickets`, `plans`, `implementation` — the four gate names this workflow posts — so the run reads as a sequence.
 
 Cost: each `status` message lands in the Run inbox, and `check` hands back the whole FIFO batch until it is acknowledged, so every one is a row the coordinator must drain. Post at gate boundaries only — four per run — never per worker.
 
@@ -79,10 +78,8 @@ Each spec also names its worktree explicitly — `--worktree path:<absolute path
 | Worker | Worktree |
 |---|---|
 | graph refresh for a repo | `path:$WS/<that repo>/main` |
-| refinement (both repos) | `path:$WS/<primary repo>/main`, or the coordinator's tree — it reads graphs by absolute path |
-| brainstorming note | any one repo, but explicitly named |
-| plan for a `[BE]` spec | `path:$WS/accountia-backend/main` |
-| plan for an `[FE]` spec | `path:$WS/accountia-frontend/main` |
+| tickets (`/design-to-tickets`) | `path:$WS/<primary repo>/main` |
+| planning (`/build-plan`, all repos) | `path:$WS/<primary repo>/main` — it reads each repo's graph by absolute path |
 | SDD for a plan | the phase-4 worktree for that plan's repo |
 
 ## Querying the graph — never read it whole
@@ -171,39 +168,37 @@ Acceptance: .ua/meta.json gitCommitHash equals `git -C $WS/accountia-backend/mai
   Report both hashes.
 ```
 
-**Phase 2 — refinement**
+**Phase 2 — tickets**
 
 ```
-Target: <root> (cwd), output to $WS/docs/refinement/<TICKET>/
-Change: run /refinement <TICKET> --repo workspace/accountia-backend/main,workspace/accountia-frontend/main
-Constraints: --repo paths stay relative to the root — an absolute path or a bare repo name
-  does not resolve. The skill writes into <root>/docs/refinement/; report the exact folder
-  it produced and do not move it yourself — the coordinator relocates it to $WS/docs.
-  Jira is read-only. Do not implement anything, do not create a branch, do not commit.
-Ownership: <root>/docs/refinement/ only.
-Acceptance: 00-README.md plus one numbered file per sub-task; report the folder path and file list.
+Target: cwd under $WS; output to the ticket folder $WS/docs/design/plans/<DD-MM-YYYY>-<TICKET>-<slug>/
+Change: run /design-to-tickets <TICKET> (Jira spec) through its step 2, then stop
+Constraints: the coordinator's gate replaces the skill's review (step 3); Jira is read-only, so
+  step 4 creates no issues. Ground every existing-code claim in the knowledge graph (rule above).
+  Do not implement anything, do not create a branch, do not commit.
+Ownership: the ticket folder only.
+Acceptance: one <NN>-<slug>.md per ticket, each with its blocking edges; report the folder path and file list.
 ```
 
 **Phase 3 — planning**
 
 ```
-Target: $WS/docs/refinement/<TICKET>/<spec file>, output to $WS/docs/plans/<TICKET>/
-Change: run /superpowers:brainstorming (once) then /superpowers:writing-plans for this one spec
-Constraints: ground every existing-code claim in <repo>/main/.ua/knowledge-graph.json and cite
-  the graph node (file:/class:/function:/table:), not a source line range. Write the plan into
-  $WS/docs/plans/<TICKET>/ (not docs/superpowers/plans/). The [QC] spec is a manual test plan and
-  gets no implementation plan. Do not implement.
-Ownership: one plan file, plus your rows in the folder README.
-Acceptance: one plan file whose tasks cover every acceptance criterion in the spec; report its
-  path and the graph nodes you grounded it on.
+Target: cwd under $WS; input the Jira ticket and the approved ticket folder; output to $WS/docs/build/plans/<TICKET>/
+Change: run /build-plan <TICKET> through its step 3, then stop
+Constraints: read every ticket in the ticket folder after the Jira ticket; order each plan's tasks by
+  the tickets' blocking edges; every ticket's acceptance criteria is owned by some task. Ground every
+  existing-code claim in <repo>/main/.ua/knowledge-graph.json and cite the graph node
+  (file:/class:/function:/table:), not a source line range. The coordinator's gate replaces the
+  skill's review (step 4). Do not implement.
+Ownership: $WS/docs/build/plans/<TICKET>/ only.
+Acceptance: design.md plus one plan-<NN>-<module>-<slug>.md per repo, every acceptance criterion owned by
+  a task; report the paths and the graph nodes you grounded them on.
 ```
-
-The brainstorming worker that precedes these takes the whole refinement folder as its target and settles the specs' open questions; its output is the input the planning workers quote.
 
 **Phase 4 — implementation**
 
 ```
-Target: $WS/<repo>/<TICKET>-<slug> (the worktree), plan at $WS/docs/plans/<TICKET>/<plan>.md
+Target: $WS/<repo>/<TICKET>-<slug> (the worktree), plan at $WS/docs/build/plans/<TICKET>/<plan>.md
 Change: run /superpowers:subagent-driven-development with cwd in the worktree and the absolute plan path
 Constraints: local commits only — never push, never open an MR, never merge, never run
   finishing-a-development-branch. Dispatch your per-task implementers and reviewers as Orca
@@ -221,7 +216,7 @@ Run in parallel:
 
 Run in sequence:
 
-- brainstorming before the planning workers — its answers are their input
+- the tickets worker before the planning worker — its approved folder is the planner's input
 - one implementer per worktree at a time; two would conflict on the same tree
 - backend before frontend when the FE plan consumes an API the BE plan introduces
 
@@ -246,7 +241,7 @@ Never resolve a depth refusal by having the coordinator dispatch implementers di
 
 A settled worker may be reused for an immediate follow-up on the same Task: send it the review feedback and let it amend. A fresh worker is right when the original is gone, or when the work changed shape enough that its context is a liability.
 
-Review rounds in phases 2 and 3 are follow-ups: the same refinement or plan worker, plus the annotations.
+Review rounds in phases 2 and 3 are follow-ups: the same tickets or planning worker, plus the annotations.
 
 ## What the coordinator reports
 

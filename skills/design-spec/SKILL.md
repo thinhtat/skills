@@ -10,6 +10,10 @@ Turns one **intent** (written by `/intent`) into a **spec**, using the process a
 
 `$WS` is the `workspace` directory: the nearest ancestor of the current directory that contains `workspace/` (today `D:\projects\proj-accountia\workspace`).
 
+## Dependencies
+
+This skill reads sibling skills: `to-spec` (mattpocock/skills), `review-loop` (Accountia). Before anything else, check that each has a `SKILL.md` in a folder beside this skill's own. For each missing one, ask the user, then install it with `npx skills add <source> --skill <name> -a claude-code -y`, adding `-g` when this skill sits under the home directory. The Accountia source is the `source` recorded for this skill in `skills-lock.json`; if none is recorded, ask for it.
+
 ## 1. Pick the intent
 
 - **Path given as argument:** use that `intent.md`.
@@ -42,4 +46,4 @@ Print the path of the written file.
 
 ## 4. Review the spec
 
-Run the [review loop](../../shared/review-loop.md) on `spec.md`.
+Run the [review loop](../review-loop/SKILL.md) on `spec.md`.

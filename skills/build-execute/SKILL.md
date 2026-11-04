@@ -12,6 +12,10 @@ Runs the **plans** that `/build-plan` wrote for one ticket through superpowers, 
 
 The shell's working directory resets when it leaves the session's working directories. Run every command with absolute paths or `git -C <path>`.
 
+## Dependencies
+
+This skill reads sibling skills: `accountia-conventions` (Accountia). Before anything else, check that each has a `SKILL.md` in a folder beside this skill's own. For each missing one, ask the user, then install it with `npx skills add <source> --skill <name> -a claude-code -y`, adding `-g` when this skill sits under the home directory. The Accountia source is the `source` recorded for this skill in `skills-lock.json`; if none is recorded, ask for it.
+
 ## 1. Find the plans
 
 **Input:** one of the following. If you get none, or the input resolves to no plan file, ask for one.
@@ -38,7 +42,7 @@ Done when the user has chosen.
 
 ## 3. Create the worktrees
 
-Read the Git section of the [development conventions](../../rules/conventions.md). Then name the work:
+Read the Git section of the [development conventions](../accountia-conventions/conventions.md). Then name the work:
 
 - **Case type:** one of the conventions' eight types. Use `feat` for a Story and `fix` for a Bug. For any other ticket type, use the type that matches the work.
 - **Slug:** the ticket title in lowercase, with words joined by hyphens. Cut it short if it is long.

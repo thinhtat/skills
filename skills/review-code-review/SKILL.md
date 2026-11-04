@@ -10,6 +10,10 @@ Runs `/code-review` for one Jira ticket: the **Standards** and **Spec** axes, pl
 
 `$WS` is the `workspace` directory: the nearest ancestor of the current directory that contains `workspace/` (today `D:\projects\proj-accountia\workspace`). A module's main checkout is `$WS/<module>/main/`; its worktrees sit beside it at `$WS/<module>/<worktree>/`. Run every git command with `git -C <path>`, since the shell's working directory resets outside the session's directories.
 
+## Dependencies
+
+This skill reads sibling skills: `code-review` (mattpocock/skills), `jira-ticket` (Accountia), `accountia-conventions` (Accountia), `review-loop` (Accountia). Before anything else, check that each has a `SKILL.md` in a folder beside this skill's own. For each missing one, ask the user, then install it with `npx skills add <source> --skill <name> -a claude-code -y`, adding `-g` when this skill sits under the home directory. The Accountia source is the `source` recorded for this skill in `skills-lock.json`; if none is recorded, ask for it.
+
 ## Input
 
 `/review-code-review [<ticket>] [--mr <MR>] [--qa <QA ticket>] [--base <fixed point>] [--repo <path>]`
@@ -24,7 +28,7 @@ Give a ticket, an MR, or both.
 
 ## Atlassian calls
 
-Pass `cloudId` `genieitsoultions.atlassian.net`. Read a ticket as step 1 of [`../start-ticket/SKILL.md`](../start-ticket/SKILL.md) describes: the issue, all comments, the parent, and every linked Confluence page. Jira is read only here.
+Read a ticket as [`../jira-ticket/SKILL.md`](../jira-ticket/SKILL.md) describes, using its Atlassian calls: the issue, all comments, the parent, and every linked Confluence page. Jira is read only here.
 
 ## 1. Check out the MR
 
@@ -43,7 +47,7 @@ Done when the review worktree's HEAD equals the MR's latest commit SHA.
 
 1. **Spec:** read the ticket. Its sub-tasks stay outside the spec, except a QA ticket chosen below. With an MR, its description and discussions are context for the Spec axis; the ticket stays the spec.
 2. **QA ticket:** read it when `--qa` names one. Without `--qa`, look among the ticket's sub-tasks and issue links for a summary starting with `[QC]` or `[QA]`; when you find one, ask the user whether to use it. From the QA ticket, list every **scenario** with its preconditions, steps and expected result, numbered in its own order.
-3. **Standards:** the [development conventions](../../rules/conventions.md), and for each module the per-stack Confluence page they link (Angular for `accountia-frontend`, Java and Spring Boot plus Database and API Design for `accountia-backend`). Add any standards file the repo itself documents.
+3. **Standards:** the [development conventions](../accountia-conventions/conventions.md), and for each module the per-stack Confluence page they link (Angular for `accountia-frontend`, Java and Spring Boot plus Database and API Design for `accountia-backend`). Add any standards file the repo itself documents.
 4. **Diffs:** for each repo, run `git -C <repo> fetch origin`, then capture `git -C <repo> diff <fixed point>...HEAD` and `git -C <repo> log <fixed point>..HEAD --oneline`. Confirm the fixed point resolves and the diff is non-empty in each repo.
 5. **MR for a local branch:** without `--mr`, look up an open MR with `glab mr list --source-branch <branch>` in each repo. Read its discussions as in step 1.
 6. **Open questions:** the **reviewer** is the user running this skill: their GitLab username (`glab api user`, field `username`) and their Jira account (`atlassianUserInfo`). An open question is a comment in the ticket or the MR discussions that asks the reviewer to decide, confirm, approve, or act (an @-mention of them, or a question to the MR's reviewers), with no later reply from the reviewer in the same thread. For each, record: who asked, when, the source (Jira comment, or MR discussion ID and note URL), the question in one sentence, and the options the asker offered with their recommendation.
@@ -96,7 +100,7 @@ Done when the file holds every axis section, a recap of every thread holding an 
 
 ## 5. Review the report
 
-Run the [review loop](../../shared/review-loop.md) on the report file. The user answers the open questions through their annotations: write each answer they give into its `Answer:` line, replacing the proposal, and mark a question they set aside as `Answer: skipped`. Bring `## Next actions` in line with every changed answer.
+Run the [review loop](../review-loop/SKILL.md) on the report file. The user answers the open questions through their annotations: write each answer they give into its `Answer:` line, replacing the proposal, and mark a question they set aside as `Answer: skipped`. Bring `## Next actions` in line with every changed answer.
 
 Done when the user approves. A closed session ends the skill there: go straight to the clean-up in step 7, and print the report path.
 

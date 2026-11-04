@@ -1,6 +1,6 @@
 ---
 name: orchestration-workflow
-description: Run a Jira ticket end to end — preflight gates, refinement specs, implementation plans, then subagent-driven implementation in per-repo worktrees. Invoke with /orchestration-workflow <TICKET>.
+description: Run a Jira ticket end to end — preflight gates, ticket breakdown, implementation plans, then subagent-driven implementation in per-repo worktrees. Invoke with /orchestration-workflow <TICKET>.
 disable-model-invocation: true
 ---
 
@@ -13,6 +13,10 @@ Every delegation goes through **Orca orchestration** on one bound Run. This skil
 ```
 /orchestration-workflow ACC-1234
 ```
+
+## Dependencies
+
+This skill reads sibling skills: `to-tickets` (mattpocock/skills), `design-to-tickets` (Accountia), `build-plan` (Accountia), `jira-ticket` (Accountia), `accountia-conventions` (Accountia), `review-loop` (Accountia). Before anything else, check that each has a `SKILL.md` in a folder beside this skill's own. For each missing one, ask the user, then install it with `npx skills add <source> --skill <name> -a claude-code -y`, adding `-g` when this skill sits under the home directory. The Accountia source is the `source` recorded for this skill in `skills-lock.json`; if none is recorded, ask for it.
 
 ## Input
 
@@ -44,7 +48,7 @@ Before phase 1:
 --worktree path:<absolute path to $WS/<repo>/main>
 ```
 
-A planning worker for an `[FE]` spec runs in `$WS/accountia-frontend/main`; a `[BE]` spec in `$WS/accountia-backend/main`. A worker whose job is to read both graphs (the brainstorming note) still gets an explicit path, not `current`.
+A worker that touches one repo runs in that repo's `main`. A worker that reads both repos (the tickets and planning workers) still gets an explicit path, the primary repo's `main`, not `current`.
 
 Dispatch shapes, the task-spec contract, waves, and the nested-worker depth budget: [references/delegation.md](references/delegation.md).
 
@@ -74,8 +78,8 @@ If a graph cannot answer something — it is stale, the node is absent, or the q
 | Phase | Produces | Gate |
 |---|---|---|
 | 1. Preflight | verified ticket, verified graph | G1 Jira · G2 `/understand` · G3 graphs current |
-| 2. Refinement | `$WS/docs/refinement/<TICKET>/` | human approves the folder |
-| 3. Implementation plans | `$WS/docs/plans/<TICKET>/` | human approves the folder |
+| 2. Tickets | the ticket folder `$WS/docs/design/plans/<DD-MM-YYYY>-<TICKET>-<slug>/` | human approves the folder |
+| 3. Implementation plans | `$WS/docs/build/plans/<TICKET>/` | human approves the plans |
 | 4. Implementation | one worktree per repo, committed | every plan implemented and reviewed |
 
 Title every task `<Pn> <phase> <ticket>` and post one `status` message on the Run when a gate passes, so the run is readable while it is in flight — shapes and the cost of each: [references/delegation.md](references/delegation.md#announcing-phases).
@@ -88,7 +92,7 @@ Three gates, all before phase 2. Each either passes or ends the run.
 
 **G1 — Jira reachable, ticket exists.** `getJiraIssue` (Atlassian MCP, cloudId `genieitsoultions.atlassian.net`, `responseContentFormat: markdown`, fields `summary description status issuetype assignee reporter parent comment issuelinks subtasks labels components`) returns the issue. Unreachable or absent → stop. The ticket is the only source of intent.
 
-**G2 — `/understand` available.** The `understand-anything:understand` skill resolves. Missing → stop: the graphs cannot be refreshed, and refinement will refuse a stale graph.
+**G2 — `/understand` available.** The `understand-anything:understand` skill resolves. Missing → stop: the graphs cannot be refreshed, and phase 3 cannot be grounded.
 
 **G3 — every repo's graph is at its main-worktree HEAD.** For each inferred repo, compare `$WS/<repo>/main/.ua/meta.json`'s `gitCommitHash` with `git -C $WS/<repo>/main rev-parse HEAD`.
 
@@ -107,59 +111,53 @@ A graph beside `main` (`$WS/<repo>/.ua`) belongs to no checkout the run uses. Le
 
 G1–G3 all passing closes phase 1: post `status` with `--phase "preflight"`, naming the ticket key and type and each repo's graph hash against its HEAD.
 
-Phase 1 refreshes the graph; refinement will not. That is deliberate: the workflow owns freshness so refinement's own gate is satisfiable, then refinement runs against a verified graph.
+Phase 1 refreshes the graph; the later phases will not. The workflow owns freshness, so phases 2 and 3 run against a verified graph.
 
-### Phase 2 — Refinement
+### Phase 2 — Tickets
 
-Dispatch one worker, cwd at the root that contains `workspace/`, task spec:
-
-```
-/refinement <TICKET> --repo workspace/<repo>/main[,workspace/<repo2>/main]
-```
-
-The relative `--repo` path is required: refinement resolves a repo as `<root>/<repo>`, and `accountia-backend` does not exist at the root — only `workspace/accountia-backend/main` does, with both its `.ua` and its git HEAD. Absolute paths and bare repo names both miss.
-
-Refinement writes to the root's own `docs/refinement/<TICKET>/` — it derives that from where its skill file lives, so cwd does not move it. Once the worker reports its folder, **relocate it** to the workflow's docs root:
+Dispatch one worker, cwd under `$WS`, `--worktree path:$WS/<primary repo>/main`, task spec:
 
 ```
-$WS/docs/refinement/<TICKET>/
+/design-to-tickets <TICKET>
 ```
 
-Move the folder the worker produced, including a timestamped one (`<TICKET>-<YYYYMMDD-HHMMSS>`), and leave nothing behind at the root. If `$WS/docs/refinement/<TICKET>/` already exists, keep both: write the new one beside it under its timestamped name.
+The ticket is the Jira spec. The worker runs the skill through its step 2 and stops there: the gate below replaces its review (step 3), and Jira stays read-only, so its step 4 creates no issues. The skill writes the **ticket folder** `$WS/docs/design/plans/<DD-MM-YYYY>-<TICKET>-<slug>/`, one `<NN>-<slug>.md` per ticket with its blocking edges. The worker reports the exact folder path.
 
-The gate: the specs are in `$WS/docs/refinement/<TICKET>/`, verified by listing the folder, then the developer reviews that folder.
+The gate: the tickets are in the ticket folder, verified by listing it, then the developer reviews that folder.
 
 ```
-plannotator annotate "$WS/docs/refinement/<TICKET>" --gate --json
+plannotator annotate "<ticket folder>" --gate --json
 ```
 
-- `approved` → post `status` with `--phase "refinement"` (folder, file count, verdict), then phase 3.
-- Annotations → re-dispatch the refinement worker with that feedback, then re-present.
+- `approved` → post `status` with `--phase "tickets"` (folder, ticket count, verdict), then phase 3.
+- Annotations → re-dispatch the tickets worker with that feedback, then re-present.
 - Anything else → stay in phase 2.
 
 ### Phase 3 — Implementation plans
 
-Read every file in `$WS/docs/refinement/<TICKET>/`. `00-README.md` is the index; a `[QC]` spec is a manual test plan for a human and gets no implementation plan. Each `[BE]` / `[FE]` spec gets one plan.
+Dispatch one worker, `--worktree path:$WS/<primary repo>/main`, task spec:
 
-Ground the plans in the knowledge graphs first — the graph is the evidence for every "already exists", "already called", and "already returns" claim, and for where the change belongs. Reading source is for placing an edit in a file the graph already named, never for discovering the design.
+```
+/build-plan <TICKET>
+```
 
-Dispatch `/superpowers:brainstorming` first, to settle the specs' open questions. Its note is a design note built from the graphs, and every claim in it cites a graph node (`file:` / `class:` / `function:` / `table:`). A line range is fine when it came from that node's `lineRange`; a note full of `:257-269` with no node id was produced by reading the tree.
+with the approved ticket folder as added input: after the Jira ticket, the worker reads every ticket in the folder, orders each plan's tasks by the tickets' blocking edges, and makes every ticket's acceptance criteria owned by some task. It runs the skill through its step 3 and stops there: the gate below replaces its review (step 4). The skill writes `$WS/docs/build/plans/<TICKET>/`: `design.md` plus one `plan-<NN>-<module>-<slug>.md` per repo, in dependency order.
 
-Then, once it settles, dispatch one `/superpowers:writing-plans` worker per implementation spec, each in **that spec's own repo worktree** (`--worktree path:$WS/<repo>/main`), each told to write into `$WS/docs/plans/<TICKET>/` — one plan file per spec, plus a `README.md` index carrying sequencing, the decisions made, and the graph commit each plan was written against.
+Ground the plans in the knowledge graphs — the graph is the evidence for every "already exists", "already called", and "already returns" claim, and for where the change belongs. Reading source is for placing an edit in a file the graph already named, never for discovering the design. Every code claim in `design.md` and the plans cites a graph node (`file:` / `class:` / `function:` / `table:`); a line range is fine when it came from that node's `lineRange`, and a plan full of `:257-269` with no node id was produced by reading the tree.
 
-The gate: `plannotator annotate "$WS/docs/plans/<TICKET>" --gate --json`, same loop as phase 2, re-dispatching the plan's own worker for each round. Passing it posts `status` with `--phase "plans"` — plan count and the graph commit each was written against.
+The gate: `plannotator annotate <plan-01> <plan-02> … --gate --json`, same loop as phase 2, re-dispatching the planning worker for each round. Passing it posts `status` with `--phase "plans"` — plan count and the graph commit each was written against.
 
 ### Phase 4 — Implementation
 
-Map each plan to its repo (`[BE]` → `accountia-backend`, `[FE]` → `accountia-frontend`). For each repo, create the worktree **from the main worktree**:
+Map each plan to its repo by the `<module>` in its file name (`plan-<NN>-<module>-<slug>.md`). For each repo, create the worktree **from the main worktree**:
 
 ```
 git -C $WS/<repo>/main worktree add $WS/<repo>/<TICKET>-<slug> -b <case-type>/<TICKET>-<slug>
 ```
 
-`<case-type>`: Story → `feat`, Bug → `fix`, Task → `feat`; `<slug>` is the ticket title as a slug per `.claude/conventions.md`.
+`<case-type>`: Story → `feat`, Bug → `fix`, Task → `feat`; `<slug>` is the ticket title as a slug per the [development conventions](../accountia-conventions/conventions.md).
 
-Then dispatch one worker per plan, each running `/superpowers:subagent-driven-development` **with cwd inside its own worktree** and the absolute plan path. SDD dispatches its per-task implementers and reviewers as Orca workers on the same Run — its own nested workers, no second `run-create`. One implementer per worktree at a time.
+Then dispatch one worker per plan, each running `/superpowers:subagent-driven-development` **with cwd inside its own worktree** and the absolute plan path, in plan number order. SDD dispatches its per-task implementers and reviewers as Orca workers on the same Run — its own nested workers, no second `run-create`. One implementer per worktree at a time.
 
 When every plan is complete and reviewed: release the settled workers, post `status` with `--phase "implementation"` naming each worktree's branch and committed range, and report the same to the developer. That ends the run.
 

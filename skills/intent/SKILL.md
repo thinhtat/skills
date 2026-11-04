@@ -8,6 +8,10 @@ disable-model-invocation: true
 
 An **intent** is a one-page record of what should change and why, written before any design or code. This skill grills the user until the intent is sharp, then writes it to `$WS/docs/intent/<DD-MM-YYYY>-<slug>/intent.md`. It finishes when the user has approved or closed the review of that file. Design, tasks and code come afterwards.
 
+## Dependencies
+
+This skill reads sibling skills: `review-loop` (Accountia). Before anything else, check that each has a `SKILL.md` in a folder beside this skill's own. For each missing one, ask the user, then install it with `npx skills add <source> --skill <name> -a claude-code -y`, adding `-g` when this skill sits under the home directory. The Accountia source is the `source` recorded for this skill in `skills-lock.json`; if none is recorded, ask for it.
+
 ## 1. Grill
 
 Interview the user relentlessly about the idea, walking each branch of the decision tree and resolving decisions that depend on one another in order.
@@ -58,4 +62,4 @@ Print the path of the written file.
 
 ## 3. Review
 
-Run the [review loop](../../shared/review-loop.md) on `intent.md`.
+Run the [review loop](../review-loop/SKILL.md) on `intent.md`.

@@ -12,15 +12,19 @@ Turns one Jira **ticket** into a **design** with `superpowers:brainstorming`, th
 
 The **code** of each module lives in its main worktree, `$WS/<module>/main/` (e.g. `$WS/accountia-backend/main/`). Read it with CodeGraph when the worktree has a `.codegraph/` index.
 
+## Dependencies
+
+This skill reads sibling skills: `jira-ticket` (Accountia), `accountia-conventions` (Accountia), `review-loop` (Accountia). Before anything else, check that each has a `SKILL.md` in a folder beside this skill's own. For each missing one, ask the user, then install it with `npx skills add <source> --skill <name> -a claude-code -y`, adding `-g` when this skill sits under the home directory. The Accountia source is the `source` recorded for this skill in `skills-lock.json`; if none is recorded, ask for it.
+
 ## 1. Read the ticket
 
 **Input:** a ticket key (`ACC-1234`) or a browse URL; extract the key from a URL. If none is given, ask for one.
 
-Fetch the ticket as step 1 of [`../start-ticket/SKILL.md`](../start-ticket/SKILL.md) describes, using its Atlassian calls section: the issue, all comments, the parent, every linked Confluence page, plus the summary and description of each sub-task. Jira is read only; the ticket's status, assignee and comments stay as they are.
+Read the ticket as [`../jira-ticket/SKILL.md`](../jira-ticket/SKILL.md) describes: the issue, all comments, the parent, every linked Confluence page, plus the summary and description of each sub-task. Jira is read only; the ticket's status, assignee and comments stay as they are.
 
 If the plan folder already exists, overwrite its files.
 
-Then read the [development conventions](../../rules/conventions.md) in full: coding principles, error handling, security, testing, and Git naming for branches and commits. For each module the ticket touches, also fetch the per-stack Confluence page the conventions link (Angular, Java and Spring Boot, Database, API Design).
+Then read the [development conventions](../accountia-conventions/conventions.md) in full: coding principles, error handling, security, testing, and Git naming for branches and commits. For each module the ticket touches, also fetch the per-stack Confluence page the conventions link (Angular, Java and Spring Boot, Database, API Design).
 
 Done when every source above has been read in full.
 
@@ -53,6 +57,6 @@ Done when every acceptance criterion of the ticket is owned by a task in some pl
 
 ## 4. Review the plans
 
-Run the [review loop](../../shared/review-loop.md) on the plan files together, in number order (`plannotator annotate <plan-01> <plan-02> …`). Re-check the step-3 completion criterion after each round of edits.
+Run the [review loop](../review-loop/SKILL.md) on the plan files together, in number order (`plannotator annotate <plan-01> <plan-02> …`). Re-check the step-3 completion criterion after each round of edits.
 
 On approval, print every plan path and the assumptions recorded in `design.md`.

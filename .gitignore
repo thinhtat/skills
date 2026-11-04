@@ -1,0 +1,15 @@
+# Local junctions to skills/<name>, created by scripts/link-local.ps1; the source of truth is skills/.
+/.claude/skills/accountia-conventions
+/.claude/skills/review-loop
+/.claude/skills/build-execute
+/.claude/skills/build-plan
+/.claude/skills/design-spec
+/.claude/skills/design-to-tickets
+/.claude/skills/intent
+/.claude/skills/orchestration-workflow
+/.claude/skills/posting-artifact
+/.claude/skills/review-code-review
+/.claude/skills/jira-ticket
+
+# Per-machine Claude Code settings must not ship inside an installed skill.
+/skills/**/.claude/

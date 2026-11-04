@@ -13,8 +13,8 @@
     ├── accountia-frontend/
     │   └── main/
     └── docs/
-        ├── refinement/<TICKET>/
-        └── plans/<TICKET>/
+        ├── design/plans/<DD-MM-YYYY>-<TICKET>-<slug>/   ticket folder (phase 2)
+        └── build/plans/<TICKET>/                       design.md + plans (phase 3)
 ```
 
 A worktree created in phase 4 is a sibling of `main`, never inside it:
@@ -66,30 +66,12 @@ $env:UNDERSTAND_NO_WORKTREE_REDIRECT = '1'
 
 A `.ua/` directly under `$WS/<repo>/` (beside `main`) belongs to no checkout in use. Ignore it: do not read it, do not move it into `main`, do not delete it.
 
-## Refinement (phase 2)
+## Tickets and plans (phases 2–3)
 
-```bash
-cd <root>
-/refinement ACC-1234 --repo workspace/accountia-backend/main,workspace/accountia-frontend/main
-```
+`/design-to-tickets` and `/build-plan` both resolve `$WS` as the nearest ancestor of their cwd that contains `workspace/`, so their output lands in `$WS/docs` wherever the worker starts under the root. Nothing needs relocating.
 
-Refinement resolves a repo as `<root>/<repo>`, where root is the directory holding `.claude/skills/refinement/` or the cwd. Both of these miss:
-
-- `--repo accountia-backend` — that path does not exist at the root; only `workspace/accountia-backend/main` does.
-- `--repo D:\...\workspace\accountia-backend\main` — an absolute path bypasses the root-relative resolution refinement expects.
-
-The relative path makes `$REPO/.ua` and `git -C $REPO rev-parse HEAD` both land on the main worktree, which is the graph phase 1 just verified.
-
-### Where refinement actually writes
-
-Refinement fixes its output at `<root>/docs/refinement/<ISSUE-KEY>/`, where root is the directory containing `.claude/skills/refinement/` — cwd does not change it. This workflow's docs root is `$WS/docs`, so after the worker reports its folder the coordinator moves it:
-
-```bash
-mkdir -p "$WS/docs/refinement"
-mv "<root>/docs/refinement/ACC-1234" "$WS/docs/refinement/ACC-1234"
-```
-
-A timestamped folder (`<KEY>-<YYYYMMDD-HHMMSS>`, produced when the target already existed) moves the same way, keeping its name. Leave nothing behind at the root; never overwrite an existing folder in `$WS/docs`.
+- `/design-to-tickets <TICKET>` writes the ticket folder `$WS/docs/design/plans/<DD-MM-YYYY>-<TICKET>-<slug>/`. If that folder already exists, the skill asks whether to update it or pick a new slug; the worker raises that as a question to the coordinator.
+- `/build-plan <TICKET>` writes `$WS/docs/build/plans/<TICKET>/` and overwrites an existing plan folder.
 
 ## Worktrees (phase 4)
 
@@ -99,7 +81,7 @@ git -C "$WS/accountia-backend/main" worktree add \
   -b "feat/ACC-1234-<slug>"
 ```
 
-Case type: Story → `feat`, Bug → `fix`, Task → `feat`. Slug: ticket title, per `.claude/conventions.md` (branch `<case-type>/<ticket-key>-<title-as-slug>`).
+Case type: Story → `feat`, Bug → `fix`, Task → `feat`. Slug: ticket title, per the [development conventions](../../accountia-conventions/conventions.md) (branch `<case-type>/<ticket-key>-<title-as-slug>`).
 
 Verify it branches from main's HEAD and leaves main untouched:
 

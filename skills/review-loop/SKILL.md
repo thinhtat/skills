@@ -1,6 +1,12 @@
+---
+name: review-loop
+description: Shared reference for the Accountia skills: how the user reviews a written file or folder in Plannotator before a skill finishes.
+disable-model-invocation: true
+---
+
 # Review loop
 
-Shared by `/intent`, `/design-spec`, `/design-to-tickets` and `/build-plan`: the user reviews a written file or folder in Plannotator before the skill finishes.
+Shared by `/intent`, `/design-spec`, `/design-to-tickets`, `/build-plan` and `/review-code-review`: the user reviews a written file or folder in Plannotator before the skill finishes.
 
 Open the target in Plannotator: run `plannotator annotate <path>…` (one file, several files opened as one review, or a folder) with the Bash tool in the background; it exits when the user finishes in the browser, and its output arrives as a task notification. Handle its output as `~/.claude/skills/plannotator-annotate/SKILL.md` describes, with one addition: after addressing annotations, save the files and run the command again.
 

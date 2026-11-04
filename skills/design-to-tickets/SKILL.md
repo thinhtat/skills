@@ -10,6 +10,10 @@ Breaks one **spec** (a Jira issue, or a `spec.md` written by `/design-spec`) int
 
 `$WS` is the `workspace` directory: the nearest ancestor of the current directory that contains `workspace/` (today `D:\projects\proj-accountia\workspace`).
 
+## Dependencies
+
+This skill reads sibling skills: `to-tickets` (mattpocock/skills), `jira-ticket` (Accountia), `review-loop` (Accountia). Before anything else, check that each has a `SKILL.md` in a folder beside this skill's own. For each missing one, ask the user, then install it with `npx skills add <source> --skill <name> -a claude-code -y`, adding `-g` when this skill sits under the home directory. The Accountia source is the `source` recorded for this skill in `skills-lock.json`; if none is recorded, ask for it.
+
 ## 1. Pick the spec
 
 The spec comes from one of two **sources**:
@@ -25,7 +29,7 @@ Choose the source from the argument:
 
 Then read the spec:
 
-- **Jira:** fetch it as step 1 of [`../start-ticket/SKILL.md`](../start-ticket/SKILL.md) describes, using its Atlassian calls section: the issue, all comments, the parent, and every linked Confluence page. Jira is read only here. The issue's existing sub-tasks lie outside the spec. Treat the issue as if it had none: skip their content, and derive the whole breakdown in step 2 from the spec alone.
+- **Jira:** read it as [`../jira-ticket/SKILL.md`](../jira-ticket/SKILL.md) describes: the issue, all comments, the parent, and every linked Confluence page. Jira is read only here. The issue's existing sub-tasks lie outside the spec. Treat the issue as if it had none: skip their content, and derive the whole breakdown in step 2 from the spec alone.
 - **Local:** read `spec.md`, and the intent its `Source intent:` line names.
 
 The **spec slug** used in step 2 is:
@@ -49,7 +53,7 @@ Done when every user story of the spec is delivered by at least one ticket, and 
 
 ## 3. Review the tickets
 
-Run the [review loop](../../shared/review-loop.md) on the plan folder. Re-check the step-2 completion criterion after each round of edits.
+Run the [review loop](../review-loop/SKILL.md) on the plan folder. Re-check the step-2 completion criterion after each round of edits.
 
 ## 4. Create Jira issues (optional)
 
