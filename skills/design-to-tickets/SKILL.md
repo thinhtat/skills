@@ -47,9 +47,18 @@ Read [`../to-tickets/SKILL.md`](../to-tickets/SKILL.md) and follow its process a
 
 - **Source.** The spec is the input.
 - **Quiz.** The review of step 3 replaces its quiz step: present the breakdown there, not in chat.
+- **Repo prefix.** Each ticket changes exactly one repo, and its title starts with that repo's prefix: `# <NN>: [BE] <title>`.
+
+  | Prefix | Repo |
+  |---|---|
+  | `[BE]` | `accountia-backend` |
+  | `[FE]` | `accountia-frontend` |
+  | `[CI/CD]` | `cicd-template` |
+
+  Find each slice's repos while exploring the codebase. A slice that crosses repos becomes one ticket per repo, each the narrowest complete path within its repo, and the consumer is blocked by the provider: an `[FE]` ticket by the `[BE]` ticket whose API it calls, a ticket that needs a new cicd-template release by its `[CI/CD]` ticket. For a slice in any other repo, ask the user which prefix to use.
 - **Publish.** Use the local-files form, writing one file per ticket to the **plan folder** `$WS/docs/design/plans/<DD-MM-YYYY>-<spec-slug>/<NN>-<slug>.md`. The date is today; the spec slug comes from step 1. Create `$WS/docs/design/plans/` if it does not exist. If the plan folder already exists, ask the user whether to update those tickets or pick a new slug. The first line under each title is `Source spec: <spec reference>`.
 
-Done when every user story of the spec is delivered by at least one ticket, and every ticket's blocking edges name existing tickets. For a Jira spec with no user stories, every acceptance criterion and functional requirement takes their place.
+Done when every user story of the spec is delivered by at least one ticket, every ticket carries exactly one repo prefix, and every ticket's blocking edges name existing tickets. For a Jira spec with no user stories, every acceptance criterion and functional requirement takes their place.
 
 ## 3. Review the tickets
 
