@@ -9,6 +9,7 @@
 /.claude/skills/orchestration-workflow
 /.claude/skills/posting-artifact
 /.claude/skills/review-code-review
+/.claude/skills/review-code-review-story
 /.claude/skills/jira-ticket
 
 # Per-machine Claude Code settings must not ship inside an installed skill.

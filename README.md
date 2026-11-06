@@ -1,6 +1,6 @@
 # Accountia skills
 
-Agent skills for the Accountia delivery pipeline: `/intent` → `/design-spec` → `/design-to-tickets` → `/build-plan` → `/build-execute`, plus `/review-code-review`, `/orchestration-workflow` and helpers. Each skill is a folder under [`skills/`](skills/) with a `SKILL.md`.
+Agent skills for the Accountia delivery pipeline: `/intent` → `/design-spec` → `/design-to-tickets` → `/build-plan` → `/build-execute`, plus `/review-code-review`, `/review-code-review-story`, `/orchestration-workflow` and helpers. Each skill is a folder under [`skills/`](skills/) with a `SKILL.md`.
 
 > Internal to Genie. Host this repo privately (company GitLab) and share it only inside Genie.
 
@@ -27,6 +27,7 @@ Some skills read other skills as sibling folders (`../<name>/SKILL.md`). The CLI
 | `design-spec` | `to-spec` (mattpocock/skills), `review-loop` |
 | `design-to-tickets` | `to-tickets` (mattpocock/skills), `jira-ticket`, `review-loop` |
 | `review-code-review` | `code-review` (mattpocock/skills), `jira-ticket`, `accountia-conventions`, `review-loop` |
+| `review-code-review-story` | `code-review` (mattpocock/skills), `jira-ticket`, `accountia-conventions`, `review-loop` |
 | `build-plan` | `jira-ticket`, `accountia-conventions`, `review-loop` |
 | `build-execute` | `accountia-conventions` |
 | `intent` | `review-loop` |
@@ -49,7 +50,7 @@ These are tools, not skills, so the CLI cannot install them. Set them up once:
 | `/build-execute`, `/orchestration-workflow` | Claude Code plugin **superpowers**: `/plugin install superpowers@claude-plugins-official` |
 | every skill with a review step | **Plannotator** CLI, plus its `plannotator-annotate` skill in `~/.claude/skills/` |
 | Jira and Confluence reads and writes | **Atlassian MCP** server (see `.mcp.json`) |
-| `/build-execute`, `/review-code-review` | **glab**, logged in to gitlab.com |
+| `/build-execute`, `/review-code-review`, `/review-code-review-story` | **glab**, logged in to gitlab.com |
 | design and build skills | a `workspace/` directory: `workspace/<module>/main` worktrees and `workspace/docs/` |
 
 ## Skills
@@ -62,6 +63,7 @@ These are tools, not skills, so the CLI cannot install them. Set them up once:
 | `build-plan` | Write implementation plans for a ticket. |
 | `build-execute` | Execute the plans with superpowers in worktrees. |
 | `review-code-review` | Review a branch or GitLab MR against Jira spec, conventions and QA scenarios. |
+| `review-code-review-story` | Review a story's FE and BE MRs, together when both exist, against the story and its [QC] scenarios; each run adds a `-v<n>` report with the changes since earlier versions. |
 | `orchestration-workflow` | Run a ticket end to end with Orca workers: tickets, plans, implementation. |
 | `posting-artifact` | Publish journal-entry scenario artifacts. |
 | `accountia-conventions` | Shared: the team's development conventions. |

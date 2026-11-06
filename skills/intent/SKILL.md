@@ -6,26 +6,34 @@ disable-model-invocation: true
 
 # Intent
 
-An **intent** is a one-page record of what should change and why, written before any design or code. This skill grills the user until the intent is sharp, then writes it to `$WS/docs/intent/<DD-MM-YYYY>-<slug>/intent.md`. It finishes when the user has approved or closed the review of that file. Design, tasks and code come afterwards.
+An **intent** is a one-page record of what should change and why, written before any design or code. This skill grills the user until the intent is sharp, then writes it to `intent.md` in its intent folder. It finishes when the user has approved or closed the review of that file. Design, tasks and code come afterwards.
+
+`$WS` is the `workspace` directory: the nearest ancestor of the current directory that contains `workspace/` (today `D:\projects\proj-accountia\workspace`).
 
 ## Dependencies
 
-This skill reads sibling skills: `review-loop` (Accountia). Before anything else, check that each has a `SKILL.md` in a folder beside this skill's own. For each missing one, ask the user, then install it with `npx skills add <source> --skill <name> -a claude-code -y`, adding `-g` when this skill sits under the home directory. The Accountia source is the `source` recorded for this skill in `skills-lock.json`; if none is recorded, ask for it.
+This skill reads sibling skills: `grill-with-docs`, `grilling`, `domain-modeling` (mattpocock/skills), `review-loop` (Accountia). Before anything else, check that each has a `SKILL.md` in a folder beside this skill's own. For each missing one, ask the user, then install it with `npx skills add <source> --skill <name> -a claude-code -y`, adding `-g` when this skill sits under the home directory. The Accountia source is the `source` recorded for this skill in `skills-lock.json`; if none is recorded, ask for it.
 
-## 1. Grill
+## 1. Pick the intent folder
 
-Interview the user relentlessly about the idea, walking each branch of the decision tree and resolving decisions that depend on one another in order.
+The **intent folder** is `$WS/docs/intent/<DD-MM-YYYY>-<slug>/`. It holds `intent.md` and the grill rounds, and lives only under `$WS/docs/intent/`, never inside the skills repository or a code repository. Create `$WS/docs/intent/` if it does not exist. The date is today. The slug is a short lowercase kebab-case phrase naming the outcome, e.g. `customers-see-claim-status`. If the folder already exists, ask the user whether to update that intent or pick a new slug.
 
-- Ask one question at a time, and give your recommended answer with it.
-- Every answer comes from the user. When a question needs a fact (which systems are touched, how authentication works today), ask the user for it; the interview is the only source.
-- Push every vague answer to a concrete one: which users, how many, which system, what evidence.
-- Ask who the author is: name and role.
+Done when the intent folder exists.
 
-Done when each of the five sections below has a concrete answer the user has confirmed, and anything still unresolved is listed as an open question.
+## 2. Grill
 
-## 2. Write
+Read [`../grill-with-docs/SKILL.md`](../grill-with-docs/SKILL.md) and follow it, with the idea as the subject and these overrides:
 
-**Path.** `$WS/docs/intent/<DD-MM-YYYY>-<slug>/intent.md`, where `$WS` is the `workspace` directory: the nearest ancestor of the current directory that contains `workspace/` (today `D:\projects\proj-accountia\workspace`). Never write it inside the skills repository or a code repository. Create `$WS/docs/intent/` if it does not exist. The date is today. The slug is a short lowercase kebab-case phrase naming the outcome, e.g. `customers-see-claim-status`. If the folder already exists, ask the user whether to update that intent or pick a new slug.
+- **Rounds in Plannotator.** Each round is a file, `<intent folder>/rounds/round-<NN>.md`, numbered from `01`. It opens with the facts your sub-agents found that bear on the round (short bullets with file references), then one `:::question` block per frontier question, carrying your recommendation as `Recommended:`. The block syntax and answer format are in the "Asking the reviewer questions" section of `~/.claude/skills/plannotator/SKILL.md`. Open the round with the `plannotator` tool when you have one, else run `plannotator annotate <round file>` with the Bash tool in the background; the answers arrive in its output. Record them as `- [x]` in the round file, then write the next round. A session that closes with no answers: ask the user in chat whether to reopen it or stop.
+- **Docs location.** Treat `$WS/docs/` as the root for `domain-modeling`: the glossary is `$WS/docs/GLOSSARY.md`, ADRs go under `$WS/docs/adr/`.
+- **Concrete answers.** Push every vague answer to a concrete one: which users, how many, which system, what evidence.
+- **Author.** Ask who the author is: name and role.
+
+Done when each of the five sections below has a concrete answer the user has confirmed, anything still unresolved is listed as an open question, and every term resolved along the way is in the glossary.
+
+## 3. Write
+
+Write `<intent folder>/intent.md`.
 
 **Content.** Exactly these five sections, in this order, and nothing more. Status is always `draft`.
 
@@ -60,6 +68,6 @@ Do third-party loss adjusters need access too?
 
 Print the path of the written file.
 
-## 3. Review
+## 4. Review
 
 Run the [review loop](../review-loop/SKILL.md) on `intent.md`.

@@ -6,4 +6,4 @@ disable-model-invocation: true
 
 # Accountia conventions
 
-The conventions live in [`conventions.md`](conventions.md), beside this file. Skills that plan, build or review code read it in full before they act: `/build-plan`, `/build-execute`, `/review-code-review`.
+The conventions live in [`conventions.md`](conventions.md), beside this file. Skills that plan, build or review code read it in full before they act: `/build-plan`, `/build-execute`, `/review-code-review`, `/review-code-review-story`.
