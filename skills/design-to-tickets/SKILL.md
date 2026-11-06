@@ -56,9 +56,15 @@ Read [`../to-tickets/SKILL.md`](../to-tickets/SKILL.md) and follow its process a
   | `[CI/CD]` | `cicd-template` |
 
   Find each slice's repos while exploring the codebase. A slice that crosses repos becomes one ticket per repo, each the narrowest complete path within its repo, and the consumer is blocked by the provider: an `[FE]` ticket by the `[BE]` ticket whose API it calls, a ticket that needs a new cicd-template release by its `[CI/CD]` ticket. For a slice in any other repo, ask the user which prefix to use.
+- **Out of scope.** Each ticket ends with an `**Out of scope:**` list, after its acceptance criteria. It names what an implementer of this ticket might reasonably build but must leave alone, one line per item, each with its source:
+  - every item the spec puts out of scope, as a non-goal, a later phase or a deferral, that touches this ticket's area, quoted or closely paraphrased from the spec (`spec: <section>`);
+  - every part of the spec that a sibling ticket delivers instead, above all the other repo's side of a shared slice (`ticket <NN>`);
+  - every open question in the spec that this ticket's area depends on, which this ticket builds around without answering (`open question: <the question>`).
+
+  When none applies, write `None beyond the spec's stated scope.`
 - **Publish.** Use the local-files form, writing one file per ticket to the **plan folder** `$WS/docs/design/plans/<DD-MM-YYYY>-<spec-slug>/<NN>-<slug>.md`. The date is today; the spec slug comes from step 1. Create `$WS/docs/design/plans/` if it does not exist. If the plan folder already exists, ask the user whether to update those tickets or pick a new slug. The first line under each title is `Source spec: <spec reference>`.
 
-Done when every user story of the spec is delivered by at least one ticket, every ticket carries exactly one repo prefix, and every ticket's blocking edges name existing tickets. For a Jira spec with no user stories, every acceptance criterion and functional requirement takes their place.
+Done when every user story of the spec is delivered by at least one ticket, every ticket carries exactly one repo prefix, every ticket's blocking edges name existing tickets, every ticket has an Out of scope list, and every out-of-scope item the spec states appears in at least one ticket's list. For a Jira spec with no user stories, every acceptance criterion and functional requirement takes their place.
 
 ## 3. Review the tickets
 
@@ -71,8 +77,12 @@ Ask the user whether to create the tickets in the Jira backlog.
 - **No:** stop; the local tickets are the result. Print the plan folder path.
 - **Yes:**
   1. Check that the Atlassian MCP tools are available and that `getAccessibleAtlassianResources` returns a site. If either fails, tell the user, print the plan folder path, and stop.
-  2. Ask for the project key, the issue type, and an optional parent issue. For a Jira spec, offer the spec's issue as the parent. The parent issue itself stays unchanged.
-  3. Create one issue per ticket in dependency order (blockers first), using the issue template of `/to-tickets`, in the backlog (no sprint). Set each blocking edge as a native "blocks" issue link. Find the create and link operations with `discover`.
+  2. Pick where the issues go:
+     - **Story spec** (a Jira spec whose issue type is Story): every ticket becomes a **sub-task** of that story, in the story's project, with the project's sub-task issue type (its exact name from the project's issue-type metadata). Ask nothing here. Before creating, list the story's existing sub-tasks; for each ticket whose repo prefix and title match an existing sub-task, ask the user whether to create it anyway or skip it and record the existing key instead.
+     - **Any other spec** (Local, or a Jira issue of another type): ask for the project key, the issue type, and an optional parent issue. For a Jira spec, offer the spec's issue as the parent.
+
+     The story or parent issue itself stays unchanged.
+  3. Create one issue per ticket in dependency order (blockers first), using the issue template of `/to-tickets` with an `## Out of scope` section after `## Acceptance criteria` that carries the local ticket's list. The summary is the ticket title with its repo prefix (`[BE] <title>`). A sub-task follows its story's sprint; any other issue goes to the backlog (no sprint). Set each blocking edge as a native "blocks" issue link. Find the create and link operations with `discover`.
   4. Add a `**Jira:** <KEY>` line under each local ticket's title, and print every created key with its link.
 
-Done when every local ticket carries the key of its Jira issue and every blocking edge exists as a link.
+Done when every local ticket carries the key of its Jira issue, every blocking edge exists as a link, and, for a story spec, every created issue is a sub-task whose parent is the story.
